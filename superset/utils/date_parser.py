@@ -175,8 +175,21 @@ def get_since_until(
     _relative_start = relative_start if relative_start else "today"
     _relative_end = relative_end if relative_end else "today"
 
+    logger.info(time_range)
+
     if time_range == "No filter":
         return None, None
+
+    if time_range and (time_range.lower().startswith('this') or time_range.lower() == 'today') and separator not in time_range:
+        time_range_lower = time_range.lower()
+        if time_range_lower == 'today':
+            time_range = "DATETRUNC(DATETIME('today'), DAY) : DATETRUNC(DATEADD(DATETIME('today'), 1, DAY), DAY)"  # pylint: disable=line-too-long
+        if time_range_lower == 'this week':
+            time_range = "DATETRUNC(DATETIME('today'), WEEK) : DATETRUNC(DATEADD(DATETIME('today'), 1, WEEK), WEEK)"  # pylint: disable=line-too-long
+        if time_range_lower == 'this month':
+            time_range = "DATETRUNC(DATETIME('today'), MONTH) : DATETRUNC(DATEADD(DATETIME('today'), 1, MONTH), MONTH)"  # pylint: disable=line-too-long
+        if time_range_lower == 'this year':
+            time_range = "DATETRUNC(DATETIME('today'), YEAR) : DATETRUNC(DATEADD(DATETIME('today'), 1, YEAR), YEAR)"  # pylint: disable=line-too-long
 
     if time_range and time_range.startswith("Last") and separator not in time_range:
         time_range = time_range + separator + _relative_end
@@ -184,24 +197,15 @@ def get_since_until(
     if time_range and time_range.startswith("Next") and separator not in time_range:
         time_range = _relative_start + separator + time_range
 
-    if (
-        time_range
-        and time_range.startswith("previous calendar week")
-        and separator not in time_range
-    ):
-        time_range = "DATETRUNC(DATEADD(DATETIME('today'), -1, WEEK), WEEK) : DATETRUNC(DATETIME('today'), WEEK)"  # pylint: disable=line-too-long
-    if (
-        time_range
-        and time_range.startswith("previous calendar month")
-        and separator not in time_range
-    ):
-        time_range = "DATETRUNC(DATEADD(DATETIME('today'), -1, MONTH), MONTH) : DATETRUNC(DATETIME('today'), MONTH)"  # pylint: disable=line-too-long
-    if (
-        time_range
-        and time_range.startswith("previous calendar year")
-        and separator not in time_range
-    ):
-        time_range = "DATETRUNC(DATEADD(DATETIME('today'), -1, YEAR), YEAR) : DATETRUNC(DATETIME('today'), YEAR)"  # pylint: disable=line-too-long
+    if time_range and time_range.startswith("previous") and separator not in time_range:
+        if time_range == 'previous calendar day':
+            time_range = "DATETRUNC(DATEADD(DATETIME('today'), -1, DAY), DAY) : DATETRUNC(DATETIME('today'), DAY)"  # pylint: disable=line-too-long
+        if time_range == "previous calendar week":
+            time_range = "DATETRUNC(DATEADD(DATETIME('today'), -1, WEEK), WEEK) : DATETRUNC(DATETIME('today'), WEEK)"  # pylint: disable=line-too-long
+        if time_range == "previous calendar month":
+            time_range = "DATETRUNC(DATEADD(DATETIME('today'), -1, MONTH), MONTH) : DATETRUNC(DATETIME('today'), MONTH)"  # pylint: disable=line-too-long
+        if time_range == "previous calendar year":
+            time_range = "DATETRUNC(DATEADD(DATETIME('today'), -1, YEAR), YEAR) : DATETRUNC(DATETIME('today'), YEAR)"  # pylint: disable=line-too-long
 
     if time_range and separator in time_range:
         time_range_lookup = [

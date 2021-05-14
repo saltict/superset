@@ -44,6 +44,7 @@ import { SLOW_DEBOUNCE } from 'src/constants';
 
 import { SelectOptionType, FrameType } from './types';
 import {
+  THIS_RANGE_VALUES_SET,
   COMMON_RANGE_VALUES_SET,
   CALENDAR_RANGE_VALUES_SET,
   FRAME_OPTIONS,
@@ -53,10 +54,13 @@ import {
   CommonFrame,
   CalendarFrame,
   CustomFrame,
-  AdvancedFrame,
+  AdvancedFrame, ThisFrame,
 } from './components';
 
 const guessFrame = (timeRange: string): FrameType => {
+  if (THIS_RANGE_VALUES_SET.has(timeRange)) {
+    return 'This';
+  }
   if (COMMON_RANGE_VALUES_SET.has(timeRange)) {
     return 'Common';
   }
@@ -207,6 +211,7 @@ export default function DateFilterLabel(props: DateFilterControlProps) {
           +--------------+------+----------+--------+----------+-----------+
         */
         if (
+          guessedFrame === 'This' ||
           guessedFrame === 'Common' ||
           guessedFrame === 'Calendar' ||
           guessedFrame === 'No filter'
@@ -280,6 +285,9 @@ export default function DateFilterLabel(props: DateFilterControlProps) {
         className="frame-dropdown"
       />
       {frame !== 'No filter' && <Divider />}
+      {frame === 'This' && (
+        <ThisFrame value={timeRangeValue} onChange={setTimeRangeValue} />
+      )}
       {frame === 'Common' && (
         <CommonFrame value={timeRangeValue} onChange={setTimeRangeValue} />
       )}

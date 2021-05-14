@@ -261,9 +261,9 @@ class FilterBox extends React.PureComponent {
     const label = TIME_FILTER_LABELS.time_range;
     if (showDateFilter) {
       return (
-        <div className="row space-1">
+        <div className="clearfix space-1">
           <div
-            className="col-lg-12 col-xs-12"
+            className="clearfix"
             data-test="date-filter-container"
           >
             <DateFilterControl
