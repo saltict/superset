@@ -92,3 +92,8 @@ try:
     )
 except ImportError:
     logger.info("Using default Docker config...")
+
+# ENABLE_CORS = True
+# CORS_OPTIONS = {}
+APP_ICON = "/static/assets/images/mediclowd-logo.png"
+APP_ICON_WIDTH = 128
