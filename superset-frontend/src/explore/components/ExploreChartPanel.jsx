@@ -47,7 +47,7 @@ const propTypes = {
   table_name: PropTypes.string,
   vizType: PropTypes.string.isRequired,
   form_data: PropTypes.object,
-  ownCurrentState: PropTypes.object,
+  ownState: PropTypes.object,
   standalone: PropTypes.number,
   timeout: PropTypes.number,
   refreshOverlayVisible: PropTypes.bool,
@@ -58,7 +58,8 @@ const propTypes = {
 
 const GUTTER_SIZE_FACTOR = 1.25;
 
-const CHART_PANEL_PADDING = 30;
+const CHART_PANEL_PADDING_HORIZ = 30;
+const CHART_PANEL_PADDING_VERTICAL = 15;
 const HEADER_PADDING = 15;
 
 const STORAGE_KEYS = {
@@ -183,14 +184,15 @@ const ExploreChartPanel = props => {
 
   const renderChart = useCallback(() => {
     const { chart } = props;
-    const newHeight = calcSectionHeight(splitSizes[0]) - CHART_PANEL_PADDING;
-    const chartWidth = chartPanelWidth - CHART_PANEL_PADDING;
+    const newHeight =
+      calcSectionHeight(splitSizes[0]) - CHART_PANEL_PADDING_VERTICAL;
+    const chartWidth = chartPanelWidth - CHART_PANEL_PADDING_HORIZ;
     return (
       chartWidth > 0 && (
         <ChartContainer
           width={Math.floor(chartWidth)}
           height={newHeight}
-          ownCurrentState={props.ownCurrentState}
+          ownState={props.ownState}
           annotationData={chart.annotationData}
           chartAlert={chart.chartAlert}
           chartStackTrace={chart.chartStackTrace}
@@ -238,6 +240,7 @@ const ExploreChartPanel = props => {
 
   const header = (
     <ConnectedExploreChartHeader
+      ownState={props.ownState}
       actions={props.actions}
       addHistory={props.addHistory}
       can_overwrite={props.can_overwrite}
@@ -249,6 +252,7 @@ const ExploreChartPanel = props => {
       form_data={props.form_data}
       timeout={props.timeout}
       chart={props.chart}
+      userId={props.userId}
     />
   );
 
@@ -274,6 +278,7 @@ const ExploreChartPanel = props => {
         >
           {panelBody}
           <DataTablesPane
+            ownState={props.ownState}
             queryFormData={props.chart.latestQueryFormData}
             tableSectionHeight={tableSectionHeight}
             onCollapseChange={onCollapseChange}
