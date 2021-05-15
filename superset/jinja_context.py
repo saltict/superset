@@ -26,17 +26,18 @@ from jinja2 import DebugUndefined
 from jinja2.sandbox import SandboxedEnvironment
 
 from superset.exceptions import SupersetTemplateException
-from superset.extensions import feature_flag_manager
+from superset.extensions import feature_flag_manager, db
 from superset.utils.core import (
     convert_legacy_filters_into_adhoc,
     memoized,
     merge_extra_filters,
 )
+from superset.utils.date_parser import get_since_until
 
 if TYPE_CHECKING:
     from superset.connectors.sqla.models import SqlaTable
     from superset.models.core import Database
-    from superset.models.sql_lab import Query
+    from superset.models.sql_lab import Query, SavedQuery
 
 NONE_TYPE = type(None).__name__
 ALLOWED_TYPES = (
@@ -87,6 +88,9 @@ def filter_values(column: str, default: Optional[str] = None) -> List[str]:
     convert_legacy_filters_into_adhoc(form_data)
     merge_extra_filters(form_data)
 
+    if column == '__time_range' and 'time_range' in form_data:
+        return [form_data['time_range']]
+
     return_val = [
         comparator
         for filter in form_data.get("adhoc_filters", [])
@@ -110,6 +114,37 @@ def filter_values(column: str, default: Optional[str] = None) -> List[str]:
         return [default]
 
     return []
+
+
+def get_saved_query(label):
+    if not TYPE_CHECKING:
+        from superset.models.sql_lab import SavedQuery
+    result = db.session.query(SavedQuery).filter_by(label=label).order_by(
+        SavedQuery.created_on.desc()).first_or_404()
+    if result:
+        return result.sql
+    else:
+        return ''
+
+
+def get_filter_since_until(default=None):
+    time_range = filter_values('__time_range')
+    if time_range and isinstance(time_range, list):
+        return get_since_until(time_range=time_range[0])
+    else:
+        return default or False
+
+
+def generate_time_range_query(column, prefix='', default='TRUE'):
+    time_filter = get_filter_since_until()
+    if time_filter:
+        if time_filter[0] and time_filter[1]:
+            return f"{prefix} {column} >= '{time_filter[0]}' AND {column} < '{time_filter[1]}'"
+        elif time_filter[0] and not time_filter[1]:
+            return f"{prefix} {column} >= '{time_filter[0]}'"
+        elif time_filter[1] and not time_filter[0]:
+            return f"{prefix} {column} < '{time_filter[1]}'"
+    return f'{prefix} {default}'
 
 
 class ExtraCache:
@@ -230,7 +265,7 @@ def safe_proxy(func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
             return_value = json.loads(json.dumps(return_value))
         except TypeError:
             raise SupersetTemplateException(
-                _("Unsupported return value for method %(name)s", name=func.__name__,)
+                _("Unsupported return value for method %(name)s", name=func.__name__, )
             )
 
     return return_value
@@ -329,8 +364,21 @@ class JinjaTemplateProcessor(BaseTemplateProcessor):
                 "current_username": partial(safe_proxy, extra_cache.current_username),
                 "cache_key_wrapper": partial(safe_proxy, extra_cache.cache_key_wrapper),
                 "filter_values": partial(safe_proxy, filter_values),
+                "get_filter_since_until": partial(safe_proxy, get_filter_since_until),
+                "generate_time_range_query": partial(safe_proxy, generate_time_range_query),
+                "get_saved_query": partial(safe_proxy, get_saved_query)
             }
         )
+
+    def process_template(self, sql: str, **kwargs: Any) -> str:
+        result = super(JinjaTemplateProcessor, self).process_template(sql, **kwargs)
+        depth = kwargs.get('depth', 1)
+        if re.compile(r'{{.*}}').search(result):
+            if depth <= 5:
+                kwargs['depth'] = depth + 1
+                result = self.process_template(sql=result, **kwargs)
+
+        return result
 
 
 class NoOpTemplateProcessor(
