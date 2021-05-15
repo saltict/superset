@@ -23,8 +23,9 @@ x-superset-volumes: &superset-volumes
   - ./docker:/app/docker
   - ./superset:/app/superset
   - ./superset-frontend:/app/superset-frontend
-  - superset_home:/app/superset_home
   - ./tests:/app/tests
+  - ./custom_config:/app/custom_config
+  - superset_home:/app/superset_home
 
 version: "3.7"
 services:
