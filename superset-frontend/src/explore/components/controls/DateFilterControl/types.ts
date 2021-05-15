@@ -22,6 +22,7 @@ export type SelectOptionType = {
 };
 
 export type FrameType =
+  | 'This'
   | 'Common'
   | 'Calendar'
   | 'Custom'
@@ -77,10 +78,18 @@ export type CommonRangeType =
   | 'Last quarter'
   | 'Last year';
 
+export type ThisRangeType =
+  | 'Today'
+  | 'This week'
+  | 'This month'
+  | 'This year';
+
+export const PreviousCalendarDay = 'previous calendar day';
 export const PreviousCalendarWeek = 'previous calendar week';
 export const PreviousCalendarMonth = 'previous calendar month';
 export const PreviousCalendarYear = 'previous calendar year';
 export type CalendarRangeType =
+  | typeof PreviousCalendarDay
   | typeof PreviousCalendarWeek
   | typeof PreviousCalendarMonth
   | typeof PreviousCalendarYear;

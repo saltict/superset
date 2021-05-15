@@ -20,14 +20,17 @@ import moment from 'moment';
 import { t } from '@superset-ui/core';
 import {
   SelectOptionType,
+  PreviousCalendarDay,
   PreviousCalendarWeek,
   PreviousCalendarMonth,
   PreviousCalendarYear,
+  ThisRangeType,
   CommonRangeType,
   CalendarRangeType,
 } from 'src/explore/components/controls/DateFilterControl/types';
 
 export const FRAME_OPTIONS: SelectOptionType[] = [
+  { value: 'This', label: t('This') },
   { value: 'Common', label: t('Last') },
   { value: 'Calendar', label: t('Previous') },
   { value: 'Custom', label: t('Custom') },
@@ -46,7 +49,18 @@ export const COMMON_RANGE_VALUES_SET = new Set(
   COMMON_RANGE_OPTIONS.map(({ value }) => value),
 );
 
+export const THIS_RANGE_OPTIONS: SelectOptionType[] = [
+  { value: 'Today', label: t('today') },
+  { value: 'This week', label: t('this week') },
+  { value: 'This month', label: t('this month') },
+  { value: 'This year', label: t('this year') },
+];
+export const THIS_RANGE_VALUES_SET = new Set(
+  THIS_RANGE_OPTIONS.map(({ value }) => value),
+);
+
 export const CALENDAR_RANGE_OPTIONS: SelectOptionType[] = [
+  { value: PreviousCalendarDay, label: t('previous calendar day') },
   { value: PreviousCalendarWeek, label: t('previous calendar week') },
   { value: PreviousCalendarMonth, label: t('previous calendar month') },
   { value: PreviousCalendarYear, label: t('previous calendar year') },
@@ -97,7 +111,15 @@ export const COMMON_RANGE_SET: Set<CommonRangeType> = new Set([
   'Last year',
 ]);
 
+export const THIS_RANGE_SET: Set<ThisRangeType> = new Set([
+  'Today',
+  'This week',
+  'This month',
+  'This year',
+]);
+
 export const CALENDAR_RANGE_SET: Set<CalendarRangeType> = new Set([
+  PreviousCalendarDay,
   PreviousCalendarWeek,
   PreviousCalendarMonth,
   PreviousCalendarYear,

@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+export { ThisFrame } from './ThisFrame';
 export { CommonFrame } from './CommonFrame';
 export { CalendarFrame } from './CalendarFrame';
 export { CustomFrame } from './CustomFrame';
