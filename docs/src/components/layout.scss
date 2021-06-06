@@ -88,6 +88,14 @@ th, td {
   }
 }
 
+.ant-menu-item {
+  height: 28px;
+  line-height: 28px;
+  a {
+    text-decoration: none;
+  }
+}
+
 .ant-menu-item-selected a {
   color: black;
 }

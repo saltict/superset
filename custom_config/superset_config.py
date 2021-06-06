@@ -131,3 +131,5 @@ CORS_OPTIONS = {}
 APP_ICON = "/static/assets/images/mediclowd-logo.png"
 APP_ICON_WIDTH = 128
 FEATURE_FLAGS['ENABLE_TEMPLATE_PROCESSING'] = True
+
+CSV_EXPORT = {"encoding": "utf-16", "sep": "\t"}
