@@ -34,7 +34,9 @@ from tests.superset_test_custom_template_processors import CustomPrestoTemplateP
 AUTH_USER_REGISTRATION_ROLE = "alpha"
 SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(DATA_DIR, "unittests.db")
 DEBUG = False
-SUPERSET_WEBSERVER_PORT = 8081
+
+SUPERSET_WEBSERVER_ADDRESS = 'superset'
+SUPERSET_WEBSERVER_PORT = 8088
 
 # Allowing SQLALCHEMY_DATABASE_URI and SQLALCHEMY_EXAMPLES_URI to be defined as an env vars for
 # continuous integration

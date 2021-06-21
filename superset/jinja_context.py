@@ -147,6 +147,15 @@ def generate_time_range_query(column, prefix='', default='TRUE'):
     return f'{prefix} {default}'
 
 
+def generate_filter_values_query(filter_column, default=None, prefix='', column=None,
+                                 value_format="'%s'", str_default=''):
+    filter_vals = filter_values(filter_column, default or [])
+    if filter_vals:
+        val_list = ','.join(list(value_format % val for val in filter_vals))
+        return f'{prefix} {column} IN ({val_list})'
+    return f'{prefix} {str_default}'
+
+
 class ExtraCache:
     """
     Dummy class that exposes a method used to store additional values used in
@@ -366,6 +375,7 @@ class JinjaTemplateProcessor(BaseTemplateProcessor):
                 "filter_values": partial(safe_proxy, filter_values),
                 "get_filter_since_until": partial(safe_proxy, get_filter_since_until),
                 "generate_time_range_query": partial(safe_proxy, generate_time_range_query),
+                "generate_filter_values_query": partial(safe_proxy, generate_filter_values_query),
                 "get_saved_query": partial(safe_proxy, get_saved_query)
             }
         )
