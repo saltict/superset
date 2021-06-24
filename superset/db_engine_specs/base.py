@@ -96,10 +96,10 @@ builtin_time_grains: Dict[Optional[str], str] = {
     "P1M": __("Month"),
     "P0.25Y": __("Quarter"),
     "P1Y": __("Year"),
-    "1969-12-28T00:00:00Z/P1W": __("Week starting sunday"),
-    "1969-12-29T00:00:00Z/P1W": __("Week starting monday"),
-    "P1W/1970-01-03T00:00:00Z": __("Week ending saturday"),
-    "P1W/1970-01-04T00:00:00Z": __("Week_ending sunday"),
+    "1969-12-28T00:00:00Z/P1W": __("Week starting Sunday"),
+    "1969-12-29T00:00:00Z/P1W": __("Week starting Monday"),
+    "P1W/1970-01-03T00:00:00Z": __("Week ending Saturday"),
+    "P1W/1970-01-04T00:00:00Z": __("Week_ending Sunday"),
 }
 
 
@@ -1255,6 +1255,14 @@ class BaseEngineSpec:  # pylint: disable=too-many-public-methods
         )
 
     @classmethod
+    def is_select_query(cls, parsed_query: ParsedQuery) -> bool:
+        """
+        Determine if the statement should be considered as SELECT statement.
+        Some query dialects do not contain "SELECT" word in queries (eg. Kusto)
+        """
+        return parsed_query.is_select()
+
+    @classmethod
     @utils.memoized
     def get_column_spec(
         cls,
@@ -1304,6 +1312,9 @@ class BasicParametersSchema(Schema):
     query = fields.Dict(
         keys=fields.Str(), values=fields.Raw(), description=__("Additional parameters")
     )
+    encryption = fields.Boolean(
+        required=False, description=__("Use an encrypted connection to the database")
+    )
 
 
 class BasicParametersType(TypedDict, total=False):
@@ -1313,6 +1324,7 @@ class BasicParametersType(TypedDict, total=False):
     port: int
     database: str
     query: Dict[str, Any]
+    encryption: bool
 
 
 class BasicParametersMixin:
@@ -1324,7 +1336,7 @@ class BasicParametersMixin:
     individual parameters, instead of the full SQLAlchemy URI. This
     mixin is for the most common pattern of URI:
 
-        drivername://user:password@host:port/dbname[?key=value&key=value...]
+        engine+driver://user:password@host:port/dbname[?key=value&key=value...]
 
     """
 
@@ -1332,30 +1344,49 @@ class BasicParametersMixin:
     parameters_schema = BasicParametersSchema()
 
     # recommended driver name for the DB engine spec
-    drivername = ""
+    default_driver = ""
 
     # placeholder with the SQLAlchemy URI template
     sqlalchemy_uri_placeholder = (
-        "drivername://user:password@host:port/dbname[?key=value&key=value...]"
+        "engine+driver://user:password@host:port/dbname[?key=value&key=value...]"
     )
 
+    # query parameter to enable encryption in the database connection
+    # for Postgres this would be `{"sslmode": "verify-ca"}`, eg.
+    encryption_parameters: Dict[str, str] = {}
+
     @classmethod
-    def build_sqlalchemy_uri(cls, parameters: BasicParametersType) -> str:
+    def build_sqlalchemy_uri(
+        cls,
+        parameters: BasicParametersType,
+        encryted_extra: Optional[Dict[str, str]] = None,
+    ) -> str:
+        query = parameters.get("query", {})
+        if parameters.get("encryption"):
+            if not cls.encryption_parameters:
+                raise Exception("Unable to build a URL with encryption enabled")
+            query.update(cls.encryption_parameters)
+
         return str(
             URL(
-                cls.drivername,
+                f"{cls.engine}+{cls.default_driver}".rstrip("+"),  # type: ignore
                 username=parameters.get("username"),
                 password=parameters.get("password"),
                 host=parameters["host"],
                 port=parameters["port"],
                 database=parameters["database"],
-                query=parameters.get("query", {}),
+                query=query,
             )
         )
 
-    @staticmethod
-    def get_parameters_from_uri(uri: str) -> BasicParametersType:
+    @classmethod
+    def get_parameters_from_uri(
+        cls, uri: str, encrypted_extra: Optional[Dict[str, Any]] = None
+    ) -> BasicParametersType:
         url = make_url(uri)
+        encryption = all(
+            item in url.query.items() for item in cls.encryption_parameters.items()
+        )
         return {
             "username": url.username,
             "password": url.password,
@@ -1363,6 +1394,7 @@ class BasicParametersMixin:
             "port": url.port,
             "database": url.database,
             "query": url.query,
+            "encryption": encryption,
         }
 
     @classmethod
@@ -1378,7 +1410,7 @@ class BasicParametersMixin:
         errors: List[SupersetError] = []
 
         required = {"host", "port", "username", "database"}
-        present = {key for key in parameters if parameters[key]}  # type: ignore
+        present = {key for key in parameters if parameters.get(key, ())}  # type: ignore
         missing = sorted(required - present)
 
         if missing:
@@ -1391,7 +1423,7 @@ class BasicParametersMixin:
                 ),
             )
 
-        host = parameters["host"]
+        host = parameters.get("host", None)
         if not host:
             return errors
         if not is_hostname_valid(host):
@@ -1405,7 +1437,7 @@ class BasicParametersMixin:
             )
             return errors
 
-        port = parameters["port"]
+        port = parameters.get("port", None)
         if not port:
             return errors
         if not is_port_open(host, port):
@@ -1425,6 +1457,9 @@ class BasicParametersMixin:
         """
         Return configuration parameters as OpenAPI.
         """
+        if not cls.parameters_schema:
+            return None
+
         spec = APISpec(
             title="Database Parameters",
             version="1.0.0",

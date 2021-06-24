@@ -17,7 +17,7 @@
  * under the License.
  */
 import React from 'react';
-import { useTheme } from '@superset-ui/core';
+import { styled, t, useTheme } from '@superset-ui/core';
 import Icons from 'src/components/Icons';
 import {
   CaretContainer,
@@ -26,6 +26,11 @@ import {
   Label,
 } from 'src/explore/components/controls/OptionControls';
 import { OptionProps } from 'src/explore/components/controls/DndColumnSelectControl/types';
+import { InfoTooltipWithTrigger } from '@superset-ui/chart-controls';
+
+const StyledInfoTooltipWithTrigger = styled(InfoTooltipWithTrigger)`
+  margin: 0 ${({ theme }) => theme.gridUnit}px;
+`;
 
 export default function Option(props: OptionProps) {
   const theme = useTheme();
@@ -39,12 +44,23 @@ export default function Option(props: OptionProps) {
         data-test="remove-control-button"
         onClick={() => props.clickClose(props.index)}
       >
-        <Icons.XSmall color={theme.colors.grayscale.light1} />
+        <Icons.XSmall iconColor={theme.colors.grayscale.light1} />
       </CloseContainer>
       <Label data-test="control-label">{props.children}</Label>
+      {props.isExtra && (
+        <StyledInfoTooltipWithTrigger
+          icon="exclamation-triangle"
+          placement="top"
+          bsStyle="warning"
+          tooltip={t(`
+                This filter was inherited from the dashboard's context.
+                It won't be saved when saving the chart.
+              `)}
+        />
+      )}
       {props.withCaret && (
         <CaretContainer>
-          <Icons.CaretRight color={theme.colors.grayscale.light1} />
+          <Icons.CaretRight iconColor={theme.colors.grayscale.light1} />
         </CaretContainer>
       )}
     </OptionControlContainer>

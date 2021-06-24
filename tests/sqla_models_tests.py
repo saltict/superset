@@ -26,7 +26,12 @@ from superset.db_engine_specs.bigquery import BigQueryEngineSpec
 from superset.db_engine_specs.druid import DruidEngineSpec
 from superset.exceptions import QueryObjectValidationError
 from superset.models.core import Database
-from superset.utils.core import GenericDataType, get_example_database, FilterOperator
+from superset.utils.core import (
+    AdhocMetricExpressionType,
+    FilterOperator,
+    GenericDataType,
+    get_example_database,
+)
 from tests.fixtures.birth_names_dashboard import load_birth_names_dashboard_with_slices
 
 from .base_tests import SupersetTestCase
@@ -102,6 +107,10 @@ class TestDatabaseModel(SupersetTestCase):
             self.assertEqual(col.is_numeric, db_col_type == GenericDataType.NUMERIC)
             self.assertEqual(col.is_string, db_col_type == GenericDataType.STRING)
 
+        for str_type, db_col_type in test_cases.items():
+            col = TableColumn(column_name="foo", type=str_type, table=tbl, is_dttm=True)
+            self.assertTrue(col.is_temporal)
+
     @patch("superset.jinja_context.g")
     def test_extra_cache_keys(self, flask_g):
         flask_g.user.username = "abc"
@@ -164,16 +173,63 @@ class TestDatabaseModel(SupersetTestCase):
             db.session.delete(table)
         db.session.commit()
 
+    @patch("superset.jinja_context.g")
+    def test_jinja_metrics_and_calc_columns(self, flask_g):
+        flask_g.user.username = "abc"
+        base_query_obj = {
+            "granularity": None,
+            "from_dttm": None,
+            "to_dttm": None,
+            "groupby": ["user", "expr"],
+            "metrics": [
+                {
+                    "expressionType": AdhocMetricExpressionType.SQL,
+                    "sqlExpression": "SUM(case when user = '{{ current_username() }}' "
+                    "then 1 else 0 end)",
+                    "label": "SUM(userid)",
+                }
+            ],
+            "is_timeseries": False,
+            "filter": [],
+        }
+
+        table = SqlaTable(
+            table_name="test_has_jinja_metric_and_expr",
+            sql="SELECT '{{ current_username() }}' as user",
+            database=get_example_database(),
+        )
+        TableColumn(
+            column_name="expr",
+            expression="case when '{{ current_username() }}' = 'abc' "
+            "then 'yes' else 'no' end",
+            type="VARCHAR(100)",
+            table=table,
+        )
+        db.session.commit()
+
+        sqla_query = table.get_sqla_query(**base_query_obj)
+        query = table.database.compile_sqla_query(sqla_query.sqla_query)
+        # assert expression
+        assert "case when 'abc' = 'abc' then 'yes' else 'no' end" in query
+        # assert metric
+        assert "SUM(case when user = 'abc' then 1 else 0 end)" in query
+        # Cleanup
+        db.session.delete(table)
+        db.session.commit()
+
     @pytest.mark.usefixtures("load_birth_names_dashboard_with_slices")
     def test_where_operators(self):
         class FilterTestCase(NamedTuple):
             operator: str
             value: Union[float, int, List[Any], str]
-            expected: str
+            expected: Union[str, List[str]]
 
         filters: Tuple[FilterTestCase, ...] = (
             FilterTestCase(FilterOperator.IS_NULL, "", "IS NULL"),
             FilterTestCase(FilterOperator.IS_NOT_NULL, "", "IS NOT NULL"),
+            # Some db backends translate true/false to 1/0
+            FilterTestCase(FilterOperator.IS_TRUE, "", ["IS 1", "IS true"]),
+            FilterTestCase(FilterOperator.IS_FALSE, "", ["IS 0", "IS false"]),
             FilterTestCase(FilterOperator.GREATER_THAN, 0, "> 0"),
             FilterTestCase(FilterOperator.GREATER_THAN_OR_EQUALS, 0, ">= 0"),
             FilterTestCase(FilterOperator.LESS_THAN, 0, "< 0"),
@@ -199,7 +255,12 @@ class TestDatabaseModel(SupersetTestCase):
             }
             sqla_query = table.get_sqla_query(**query_obj)
             sql = table.database.compile_sqla_query(sqla_query.sqla_query)
-            self.assertIn(filter_.expected, sql)
+            if isinstance(filter_.expected, list):
+                self.assertTrue(
+                    any([candidate in sql for candidate in filter_.expected])
+                )
+            else:
+                self.assertIn(filter_.expected, sql)
 
     def test_incorrect_jinja_syntax_raises_correct_exception(self):
         query_obj = {
