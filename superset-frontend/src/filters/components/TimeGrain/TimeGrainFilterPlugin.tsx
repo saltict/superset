@@ -19,22 +19,17 @@
 import {
   ensureIsArray,
   ExtraFormData,
-  styled,
   t,
   TimeGranularity,
   tn,
 } from '@superset-ui/core';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Select } from 'src/common/components';
-import { Styles, StyledSelect } from '../common';
+import { FormItemProps } from 'antd/lib/form';
+import { Styles, StyledSelect, StyledFormItem, StatusMessage } from '../common';
 import { PluginFilterTimeGrainProps } from './types';
-import FormItem from '../../../components/Form/FormItem';
 
 const { Option } = Select;
-
-const Error = styled.div`
-  color: ${({ theme }) => theme.colors.error.base};
-`;
 
 export default function PluginFilterTimegrain(
   props: PluginFilterTimeGrainProps,
@@ -52,10 +47,22 @@ export default function PluginFilterTimegrain(
   const { defaultValue, inputRef } = formData;
 
   const [value, setValue] = useState<string[]>(defaultValue ?? []);
+  const durationMap = useMemo(
+    () =>
+      data.reduce(
+        (agg, { duration, name }: { duration: string; name: string }) => ({
+          ...agg,
+          [duration]: name,
+        }),
+        {} as { [key in string]: string },
+      ),
+    [JSON.stringify(data)],
+  );
 
   const handleChange = (values: string[] | string | undefined | null) => {
     const resultValue: string[] = ensureIsArray<string>(values);
     const [timeGrain] = resultValue;
+    const label = timeGrain ? durationMap[timeGrain] : undefined;
 
     const extraFormData: ExtraFormData = {};
     if (timeGrain) {
@@ -65,14 +72,11 @@ export default function PluginFilterTimegrain(
     setDataMask({
       extraFormData,
       filterState: {
+        label,
         value: resultValue.length ? resultValue : null,
       },
     });
   };
-
-  useEffect(() => {
-    handleChange(filterState.value ?? []);
-  }, [JSON.stringify(filterState.value)]);
 
   useEffect(() => {
     handleChange(defaultValue ?? []);
@@ -80,15 +84,28 @@ export default function PluginFilterTimegrain(
     // so we can process it like this `JSON.stringify` or start to use `Immer`
   }, [JSON.stringify(defaultValue)]);
 
+  useEffect(() => {
+    handleChange(filterState.value ?? []);
+  }, [JSON.stringify(filterState.value)]);
+
   const placeholderText =
     (data || []).length === 0
       ? t('No data')
       : tn('%s option', '%s options', data.length, data.length);
+
+  const formItemData: FormItemProps = {};
+  if (filterState.validateMessage) {
+    formItemData.extra = (
+      <StatusMessage status={filterState.validateStatus}>
+        {filterState.validateMessage}
+      </StatusMessage>
+    );
+  }
   return (
     <Styles height={height} width={width}>
-      <FormItem
-        validateStatus={filterState.validateMessage && 'error'}
-        extra={<Error>{filterState.validateMessage}</Error>}
+      <StyledFormItem
+        validateStatus={filterState.validateStatus}
+        {...formItemData}
       >
         <StyledSelect
           allowClear
@@ -109,7 +126,7 @@ export default function PluginFilterTimegrain(
             );
           })}
         </StyledSelect>
-      </FormItem>
+      </StyledFormItem>
     </Styles>
   );
 }
