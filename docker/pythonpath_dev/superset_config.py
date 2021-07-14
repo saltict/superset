@@ -98,6 +98,14 @@ WEBDRIVER_BASEURL_USER_FRIENDLY = WEBDRIVER_BASEURL
 
 SQLLAB_CTAS_NO_LIMIT = True
 
+ENABLE_CORS = True
+CORS_OPTIONS = {
+    'origin': '*',
+}
+SESSION_COOKIE_HTTPONLY: False
+SESSION_COOKIE_SAMESITE = None
+HTTP_HEADERS = {'X-Frame-Options': 'ALLOWALL'}
+
 #
 # Optionally import superset_config_docker.py (which will have been included on
 # the PYTHONPATH) in order to allow for local settings to be overridden
