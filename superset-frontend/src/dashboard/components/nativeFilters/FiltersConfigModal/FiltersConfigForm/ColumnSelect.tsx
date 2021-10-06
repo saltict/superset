@@ -20,8 +20,8 @@ import React, { useCallback, useState, useMemo, useEffect } from 'react';
 import { FormInstance } from 'antd/lib/form';
 import { Column, ensureIsArray, SupersetClient, t } from '@superset-ui/core';
 import { useChangeEffect } from 'src/common/hooks/useChangeEffect';
-import { Select } from 'src/common/components';
-import { useToasts } from 'src/messageToasts/enhancers/withToasts';
+import { Select } from 'src/components';
+import { useToasts } from 'src/components/MessageToasts/withToasts';
 import { getClientErrorObject } from 'src/utils/getClientErrorObject';
 import { cacheWrapper } from 'src/utils/cacheWrapper';
 import { NativeFiltersForm } from '../types';
@@ -36,7 +36,7 @@ interface ColumnSelectProps {
   datasetId?: number;
   value?: string | string[];
   onChange?: (value: string) => void;
-  mode?: 'multiple' | 'tags';
+  mode?: 'multiple';
 }
 
 const localCache = new Map<string, any>();
@@ -128,6 +128,7 @@ export function ColumnSelect({
     <Select
       mode={mode}
       value={mode === 'multiple' ? value || [] : value}
+      ariaLabel={t('Column select')}
       onChange={onChange}
       options={options}
       placeholder={t('Select a column')}

@@ -17,8 +17,9 @@
  * under the License.
  */
 import React, { useCallback, useMemo, useState, useRef } from 'react';
-import { uniq } from 'lodash';
+import { uniq, debounce } from 'lodash';
 import { t, styled } from '@superset-ui/core';
+import { SLOW_DEBOUNCE } from 'src/constants';
 import { Form } from 'src/common/components';
 import { StyledModal } from 'src/components/Modal';
 import ErrorBoundary from 'src/components/ErrorBoundary';
@@ -171,6 +172,8 @@ export function FiltersConfigModal({
     setCurrentFilterId(initialCurrentFilterId);
     setRemovedFilters({});
     setSaveAlertVisible(false);
+    setFormValues({ filters: {} });
+    form.setFieldsValue({ changed: false });
   };
 
   const getFilterTitle = (id: string) =>
@@ -193,6 +196,27 @@ export function FiltersConfigModal({
         title: getFilterTitle(id),
       }));
 
+  const cleanDeletedParents = (values: NativeFiltersForm | null) => {
+    Object.keys(filterConfigMap).forEach(key => {
+      const filter = filterConfigMap[key];
+      const parentId = filter.cascadeParentIds?.[0];
+      if (parentId && removedFilters[parentId]) {
+        filter.cascadeParentIds = [];
+      }
+    });
+
+    const filters = values?.filters;
+    if (filters) {
+      Object.keys(filters).forEach(key => {
+        const filter = filters[key];
+        const parentId = filter.parentFilter?.value;
+        if (parentId && removedFilters[parentId]) {
+          filter.parentFilter = undefined;
+        }
+      });
+    }
+  };
+
   const handleSave = async () => {
     const values: NativeFiltersForm | null = await validateForm(
       form,
@@ -204,6 +228,7 @@ export function FiltersConfigModal({
     );
 
     if (values) {
+      cleanDeletedParents(values);
       createHandleSave(
         filterConfigMap,
         filterIds,
@@ -211,6 +236,7 @@ export function FiltersConfigModal({
         onSave,
         values,
       )();
+      resetForm();
     } else {
       configFormRef.current.changeTab('configuration');
     }
@@ -222,12 +248,30 @@ export function FiltersConfigModal({
   };
 
   const handleCancel = () => {
-    if (unsavedFiltersIds.length > 0) {
+    const changed = form.getFieldValue('changed');
+    if (unsavedFiltersIds.length > 0 || form.isFieldsTouched() || changed) {
       setSaveAlertVisible(true);
     } else {
       handleConfirmCancel();
     }
   };
+
+  const onValuesChange = useMemo(
+    () =>
+      debounce((changes: any, values: NativeFiltersForm) => {
+        if (
+          changes.filters &&
+          Object.values(changes.filters).some(
+            (filter: any) => filter.name != null,
+          )
+        ) {
+          // we only need to set this if a name changed
+          setFormValues(values);
+        }
+        setSaveAlertVisible(false);
+      }, SLOW_DEBOUNCE),
+    [],
+  );
 
   return (
     <StyledModalWrapper
@@ -244,10 +288,8 @@ export function FiltersConfigModal({
         <Footer
           onDismiss={() => setSaveAlertVisible(false)}
           onCancel={handleCancel}
-          getFilterTitle={getFilterTitle}
           handleSave={handleSave}
           saveAlertVisible={saveAlertVisible}
-          unsavedFiltersIds={unsavedFiltersIds}
           onConfirmCancel={handleConfirmCancel}
         />
       }
@@ -257,18 +299,7 @@ export function FiltersConfigModal({
           <StyledForm
             preserve={false}
             form={form}
-            onValuesChange={(changes, values: NativeFiltersForm) => {
-              if (
-                changes.filters &&
-                Object.values(changes.filters).some(
-                  (filter: any) => filter.name != null,
-                )
-              ) {
-                // we only need to set this if a name changed
-                setFormValues(values);
-              }
-              setSaveAlertVisible(false);
-            }}
+            onValuesChange={onValuesChange}
             layout="vertical"
           >
             <FilterTabs
@@ -286,7 +317,7 @@ export function FiltersConfigModal({
                   form={form}
                   filterId={id}
                   filterToEdit={filterConfigMap[id]}
-                  removed={!!removedFilters[id]}
+                  removedFilters={removedFilters}
                   restoreFilter={restoreFilter}
                   parentFilters={getParentFilters(id)}
                 />

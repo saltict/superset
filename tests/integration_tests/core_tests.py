@@ -25,9 +25,6 @@ import json
 import logging
 from typing import Dict, List
 from urllib.parse import quote
-
-from sqlalchemy.sql import column, quoted_name, literal_column
-from sqlalchemy import select
 from tests.integration_tests.fixtures.birth_names_dashboard import (
     load_birth_names_dashboard_with_slices,
 )
@@ -43,7 +40,7 @@ import pandas as pd
 import sqlalchemy as sqla
 from sqlalchemy.exc import SQLAlchemyError
 from superset.models.cache import CacheKey
-from superset.utils.core import get_example_database, get_or_create_db
+from superset.utils.core import get_example_database
 from tests.integration_tests.conftest import with_feature_flags
 from tests.integration_tests.fixtures.energy_dashboard import (
     load_energy_table_with_slice,
@@ -56,6 +53,7 @@ from superset import (
     security_manager,
     sql_lab,
 )
+from superset.common.db_query_status import QueryStatus
 from superset.connectors.sqla.models import SqlaTable
 from superset.db_engine_specs.base import BaseEngineSpec
 from superset.db_engine_specs.mssql import MssqlEngineSpec
@@ -751,17 +749,18 @@ class TestCore(SupersetTestCase):
         data = self.run_sql(sql, "fdaklj3ws")
         self.assertEqual(data["data"][0]["test"], "2")
 
+    @pytest.mark.ofek
     @mock.patch(
         "tests.integration_tests.superset_test_custom_template_processors.datetime"
     )
-    @mock.patch("superset.sql_lab.get_sql_results")
+    @mock.patch("superset.views.core.get_sql_results")
     def test_custom_templated_sql_json(self, sql_lab_mock, mock_dt) -> None:
         """Test sqllab receives macros expanded query."""
         mock_dt.utcnow = mock.Mock(return_value=datetime.datetime(1970, 1, 1))
         self.login()
         sql = "SELECT '$DATE()' as test"
         resp = {
-            "status": utils.QueryStatus.SUCCESS,
+            "status": QueryStatus.SUCCESS,
             "query": {"rows": 1},
             "data": [{"test": "'1970-01-01'"}],
         }
@@ -900,58 +899,6 @@ class TestCore(SupersetTestCase):
         )
         rendered_query = str(table.get_from_clause())
         self.assertEqual(clean_query, rendered_query)
-
-    def test_make_column_compatible(self):
-        """
-        DB Eng Specs: Make column compatible
-        """
-
-        # with force_column_alias_quotes enabled
-        snowflake_database = get_or_create_db("snowflake", "snowflake://")
-
-        table = SqlaTable(
-            table_name="test_columns_with_alias_quotes", database=snowflake_database,
-        )
-
-        col = table.make_sqla_column_compatible(column("foo"))
-        s = select([col])
-        self.assertEqual(str(s), 'SELECT "foo" AS "foo"')
-
-        # with literal_column
-        table = SqlaTable(
-            table_name="test_columns_with_alias_quotes_on_literal_column",
-            database=snowflake_database,
-        )
-
-        col = table.make_sqla_column_compatible(literal_column("foo"))
-        s = select([col])
-        self.assertEqual(str(s), 'SELECT foo AS "foo"')
-
-        # with force_column_alias_quotes NOT enabled
-        postgres_database = get_or_create_db("postgresql", "postgresql://")
-
-        table = SqlaTable(
-            table_name="test_columns_with_no_quotes", database=postgres_database,
-        )
-
-        col = table.make_sqla_column_compatible(column("foo"))
-        s = select([col])
-        self.assertEqual(str(s), "SELECT foo AS foo")
-
-        # with literal_column
-        table = SqlaTable(
-            table_name="test_columns_with_no_quotes_on_literal_column",
-            database=postgres_database,
-        )
-
-        col = table.make_sqla_column_compatible(literal_column("foo"))
-        s = select([col])
-        self.assertEqual(str(s), "SELECT foo AS foo")
-
-        # cleanup
-        db.session.delete(snowflake_database)
-        db.session.delete(postgres_database)
-        db.session.commit()
 
     def test_slice_payload_no_datasource(self):
         self.login(username="admin")
@@ -1239,7 +1186,7 @@ class TestCore(SupersetTestCase):
         mock_can_access_database.return_value = False
         mock_schemas_accessible.return_value = ["this_schema_is_allowed_too"]
         data = self.get_json_resp(
-            url="/superset/schemas_access_for_csv_upload?db_id={db_id}".format(
+            url="/superset/schemas_access_for_file_upload?db_id={db_id}".format(
                 db_id=dbobj.id
             )
         )
@@ -1269,7 +1216,7 @@ class TestCore(SupersetTestCase):
 
         data = [{"col_0": i} for i in range(100)]
         payload = {
-            "status": utils.QueryStatus.SUCCESS,
+            "status": QueryStatus.SUCCESS,
             "query": {"rows": 100},
             "data": data,
         }
@@ -1322,7 +1269,7 @@ class TestCore(SupersetTestCase):
         query = {
             "database_id": 1,
             "sql": "SELECT * FROM birth_names LIMIT 100",
-            "status": utils.QueryStatus.PENDING,
+            "status": QueryStatus.PENDING,
         }
         (
             serialized_data,
@@ -1334,8 +1281,8 @@ class TestCore(SupersetTestCase):
         )
         payload = {
             "query_id": 1,
-            "status": utils.QueryStatus.SUCCESS,
-            "state": utils.QueryStatus.SUCCESS,
+            "status": QueryStatus.SUCCESS,
+            "state": QueryStatus.SUCCESS,
             "data": serialized_data,
             "columns": all_columns,
             "selected_columns": selected_columns,
@@ -1370,7 +1317,7 @@ class TestCore(SupersetTestCase):
         query = {
             "database_id": 1,
             "sql": "SELECT * FROM birth_names LIMIT 100",
-            "status": utils.QueryStatus.PENDING,
+            "status": QueryStatus.PENDING,
         }
         (
             serialized_data,
@@ -1382,8 +1329,8 @@ class TestCore(SupersetTestCase):
         )
         payload = {
             "query_id": 1,
-            "status": utils.QueryStatus.SUCCESS,
-            "state": utils.QueryStatus.SUCCESS,
+            "status": QueryStatus.SUCCESS,
+            "state": QueryStatus.SUCCESS,
             "data": serialized_data,
             "columns": all_columns,
             "selected_columns": selected_columns,

@@ -36,17 +36,17 @@ import {
 import { getClientErrorObject } from 'src/utils/getClientErrorObject';
 import Button from 'src/components/Button';
 import ControlHeader from 'src/explore/components/ControlHeader';
-import Label from 'src/components/Label';
+import Label, { Type } from 'src/components/Label';
 import Popover from 'src/components/Popover';
 import { Divider } from 'src/common/components';
 import Icons from 'src/components/Icons';
-import { Select } from 'src/components/Select';
+import { Select } from 'src/components';
 import { Tooltip } from 'src/components/Tooltip';
 import { DEFAULT_TIME_RANGE } from 'src/explore/constants';
 import { useDebouncedEffect } from 'src/explore/exploreUtils';
 import { SLOW_DEBOUNCE } from 'src/constants';
 import { testWithId } from 'src/utils/testUtils';
-import { SelectOptionType, FrameType } from './types';
+import { FrameType } from './types';
 
 import {
   CommonFrame,
@@ -95,6 +95,9 @@ const fetchTimeRange = async (
 };
 
 const StyledPopover = styled(Popover)``;
+const StyledRangeType = styled(Select)`
+  width: 272px;
+`;
 
 const ContentStyleWrapper = styled.div`
   .ant-row {
@@ -103,10 +106,6 @@ const ContentStyleWrapper = styled.div`
 
   .ant-input-number {
     width: 100%;
-  }
-
-  .frame-dropdown {
-    width: 272px;
   }
 
   .ant-picker {
@@ -173,6 +172,7 @@ interface DateFilterControlProps {
   onChange: (timeRange: string) => void;
   value?: string;
   endpoints?: TimeRangeEndpoints;
+  type?: Type;
 }
 
 export const DATE_FILTER_CONTROL_TEST_ID = 'date-filter-control';
@@ -181,7 +181,7 @@ export const getDateFilterControlTestId = testWithId(
 );
 
 export default function DateFilterLabel(props: DateFilterControlProps) {
-  const { value = DEFAULT_TIME_RANGE, endpoints, onChange } = props;
+  const { value = DEFAULT_TIME_RANGE, endpoints, onChange, type } = props;
   const [actualTimeRange, setActualTimeRange] = useState<string>(value);
 
   const [show, setShow] = useState<boolean>(false);
@@ -217,7 +217,11 @@ export default function DateFilterLabel(props: DateFilterControlProps) {
           guessedFrame === 'No filter'
         ) {
           setActualTimeRange(value);
-          setTooltipTitle(actualRange || '');
+          setTooltipTitle(
+            type === ('error' as Type)
+              ? t('Default value is required')
+              : actualRange || '',
+          );
         } else {
           setActualTimeRange(actualRange || '');
           setTooltipTitle(value || '');
@@ -274,23 +278,23 @@ export default function DateFilterLabel(props: DateFilterControlProps) {
     }
   };
 
-  function onChangeFrame(option: SelectOptionType) {
-    if (option.value === 'No filter') {
+  function onChangeFrame(value: string) {
+    if (value === 'No filter') {
       setTimeRangeValue('No filter');
     }
-    setFrame(option.value as FrameType);
+    setFrame(value as FrameType);
   }
 
   const theme = useTheme();
 
-  const overlayConetent = (
+  const overlayContent = (
     <ContentStyleWrapper>
       <div className="control-label">{t('RANGE TYPE')}</div>
-      <Select
+      <StyledRangeType
+        ariaLabel={t('RANGE TYPE')}
         options={FRAME_OPTIONS}
-        value={FRAME_OPTIONS.filter(({ value }) => value === frame)}
+        value={frame}
         onChange={onChangeFrame}
-        className="frame-dropdown"
       />
       {frame !== 'No filter' && <Divider />}
       {frame === 'Common' && (
@@ -359,7 +363,7 @@ export default function DateFilterLabel(props: DateFilterControlProps) {
       <StyledPopover
         placement="right"
         trigger="click"
-        content={overlayConetent}
+        content={overlayContent}
         title={title}
         defaultVisible={show}
         visible={show}
